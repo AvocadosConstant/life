@@ -2,7 +2,11 @@
 
 import argparse
 import pandas as pd
+from datetime import date
 from datetime import datetime
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
 
 datetime.strptime('Jun 1 2005  1:33PM', '%b %d %Y %I:%M%p')
 
@@ -30,7 +34,33 @@ def parse_fit(fit):
 
     # Transform dates into datetime.date objects
     fit['Date'] = fit['Date'].apply(lambda d : datetime.strptime(d, "%Y-%m-%d").date())
+    fit.rename(columns={'Weight (lbs)': 'Weight'}, inplace=True)
+
     return fit
+
+def plot_exercises(fit, out_file):
+
+    fig, ax = plt.subplots()
+    ax.set_autoscale_on(False)
+    fig.set_size_inches(16, 12)
+
+    for exercise, grp in fit.groupby(['Exercise']):
+        ax = grp.plot(ax=ax, kind='line', x='Date', y='Weight',
+                      linewidth=5, label=exercise)
+
+    # Name labels
+    plt.title('Exercise Trends', fontsize=36)
+    ax.set_xlabel('Date', fontsize=18)
+    ax.set_ylabel('Weight (lbs)', fontsize=18)
+
+    # Tweak dates
+    ax.axis([date(2018, 1, 19), date.today(), 20, 160])
+    xfmt = mdates.DateFormatter('%b %-d')
+    ax.xaxis.set_major_formatter(xfmt)
+
+    plt.legend(loc='best')
+
+    plt.savefig(out_file, bbox_inches='tight')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -45,6 +75,7 @@ def main():
     print(life)
     print(fit)
 
+    plot_exercises(fit, 'data/fit.png')
 
 if __name__ == '__main__':
     main()
