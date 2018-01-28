@@ -8,26 +8,21 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 
-datetime.strptime('Jun 1 2005  1:33PM', '%b %d %Y %I:%M%p')
-
-
-def convert_date(raw):
-    return datetime.strptime(raw, '%b %d, %I:%M %p').replace(year=2018)
-
 def calc_duration(row):
     return (row['To'] - row['From']).total_seconds() / 60
+
 
 def parse_life(life):
     life = life.drop('Comment', axis=1)
 
-    # Transform dates into datetime objects
-    life['From'] = life['From'].apply(convert_date)
-    life['To'] = life['To'].apply(convert_date)
+    # TODO: Handle years
+    life['From'] = pd.to_datetime(life['From'])
+    life['To'] = pd.to_datetime(life['To'])
 
-    # Create duration column
     life['Duration'] = life.apply(calc_duration, axis=1)
 
     return life
+
 
 def parse_fit(fit):
     fit = fit.drop(['Distance', 'Distance Unit', 'Time'], axis=1)
@@ -37,6 +32,7 @@ def parse_fit(fit):
     fit.rename(columns={'Weight (lbs)': 'Weight'}, inplace=True)
 
     return fit
+
 
 def plot_exercises(fit, out_file):
 
@@ -62,6 +58,7 @@ def plot_exercises(fit, out_file):
 
     plt.savefig(out_file, bbox_inches='tight')
 
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -72,10 +69,11 @@ def main():
     life = parse_life(pd.read_csv(args['life']))
     fit = parse_fit(pd.read_csv(args['fit']))
 
-    print(life)
-    print(fit)
+    print(life.head())
+    print(fit.head())
 
     plot_exercises(fit, 'data/fit.png')
+
 
 if __name__ == '__main__':
     main()
