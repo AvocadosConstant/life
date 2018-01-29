@@ -12,25 +12,30 @@ def calc_duration(row):
     return (row['To'] - row['From']).total_seconds() / 60
 
 
-def parse_life(life):
-    life = life.drop('Comment', axis=1)
+def parse_life(csv):
+    life = pd.read_csv(csv, dtype={'Type': 'category'})
+    life.drop('Comment', axis=1, inplace=True)
 
     # TODO: Handle years
-    life['From'] = pd.to_datetime(life['From'])
-    life['To'] = pd.to_datetime(life['To'])
+    life['From'] = pd.to_datetime(life['From'], format='%b %d, %I:%M %p')
+    life['From'] = life['From'].apply(lambda dt: dt.replace(year=2018))
+    life['To'] = pd.to_datetime(life['To'], format='%b %d, %I:%M %p')
+    life['To'] = life['To'].apply(lambda dt: dt.replace(year=2018))
 
     life['Duration'] = life.apply(calc_duration, axis=1)
 
     return life
 
 
-def parse_fit(fit):
-    fit = fit.drop(['Distance', 'Distance Unit', 'Time'], axis=1)
+def parse_fit(csv):
+    fit = pd.read_csv(csv, dtype={'Exercise': 'category', 'Category': 'category'})
+    fit.drop(['Distance', 'Distance Unit', 'Time'], axis=1, inplace=True)
 
     # Transform dates into datetime.date objects
     fit['Date'] = fit['Date'].apply(lambda d : datetime.strptime(d, "%Y-%m-%d").date())
     fit.rename(columns={'Weight (lbs)': 'Weight'}, inplace=True)
 
+    fit['Volume'] = fit.Weight * fit.Reps
     return fit
 
 
@@ -66,12 +71,16 @@ def main():
     parser.add_argument('fit',  help='FitNotes csv')
     args = vars(parser.parse_args())
 
-    life = parse_life(pd.read_csv(args['life']))
-    fit = parse_fit(pd.read_csv(args['fit']))
+    life = parse_life(args['life'])
+    fit = parse_fit(args['fit'])
 
-    print(life.head())
-    print(fit.head())
+    print('\nLife data\n', life.head())
+    print(life.info())
+    print('\n-------------------\n')
+    print('\nFit data\n', fit.head())
+    print(fit.info())
 
+    print('\n-------------------\n')
     plot_exercises(fit, 'data/fit.png')
 
 
