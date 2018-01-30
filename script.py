@@ -15,8 +15,10 @@ def calc_duration(row):
 
 
 def parse_life(csv):
-    life = pd.read_csv(csv, dtype={'Type': 'category'})
-    life.drop('Comment', axis=1, inplace=True)
+    life = pd.read_csv(
+        csv,
+        usecols=[0,1,2],
+        dtype={'Type': 'category'})
 
     # TODO: Handle years
     life['From'] = pd.to_datetime(life['From'], format='%b %d, %I:%M %p')
@@ -29,87 +31,86 @@ def parse_life(csv):
     return life
 
 
-def parse_fit(csv):
-    fit = pd.read_csv(csv, dtype={'Exercise': 'category', 'Category': 'category'})
-    fit.drop(['Distance', 'Distance Unit', 'Time'], axis=1, inplace=True)
-
-    # Transform dates into datetime.date objects
-    fit['Date'] = fit['Date'].apply(lambda d : datetime.strptime(d, "%Y-%m-%d").date())
-    fit.rename(columns={'Weight (lbs)': 'Weight'}, inplace=True)
-
-    fit['Volume'] = fit.Weight * fit.Reps
-    return fit
-
-
 def parse_strong(csv):
-    strong = pd.read_csv(
-            csv,
-            sep=';',
+    strong = pd.read_csv(csv, sep=';',
             usecols=list(range(6)),
             parse_dates=['Date'],
             header=0,
-            names='Date Workout Exercise Set Weight Reps'.split(),
-            dtype={'Exercise': 'category'}
-            )
+            names='Date Workout Exercise Order Weight Reps'.split(),
+            dtype={'Exercise': 'category'})
 
-    strong['Volume'] = strong.Weight * strong.Reps
+    # Build number of sets column
+    for workout, exercise in strong.groupby(['Date', 'Exercise']):
+        strong.loc[exercise.index.values, 'Sets'] = int(exercise.Order.max())
+    strong['Sets'] = strong['Sets'].astype(int)
+
+    # Build volume column
+    strong['Volume'] = strong.Weight * strong.Sets * strong.Reps
+
+    # Reorder cols for clarity
+    strong = strong['Date Workout Exercise Order Weight Sets Reps Volume'.split()]
+
     return strong
 
 
-def plot_exercises(fit, out_file):
-    sns.set()
-    sns.set_style('whitegrid')
-    sns.set_palette(sns.color_palette("hls", 10))
+def plot_exercises(data, metric, out_file, exercises=None):
+    valid = {'Weight', 'Sets', 'Reps', 'Volume'}
+    if metric not in valid:
+        raise ValueError(
+            'plot_exercises: metric must be one of {}'.format(valid))
 
     plt.figure()
     fig, ax = plt.subplots()
-    ax.set_autoscale_on(False)
+
+    for exercise, grp in data.groupby(['Exercise']):
+        if not exercises or exercise in exercises:
+            best_weights = grp.groupby(['Date'])[metric].max()
+            ax = best_weights.plot(
+                ax=ax, kind='line', marker='o', linestyle='-',
+                alpha=0.7, linewidth=2, label=exercise)
+
+    # Styling graph
+    sns.set()
+    sns.set_style('whitegrid')
+    sns.set_palette(sns.color_palette('hls', data.Exercise.nunique()))
+    plt.title('Strength Training {}'.format(metric), fontsize=20)
+    ax.set_xlabel('Date', fontsize=12)
+
+    units = '' if metric in {'Sets', 'Reps'} else ' (lbs)'
+    ax.set_ylabel(metric + units, fontsize=12)
+
+    ax.margins(.8, .2)
     fig.set_size_inches(16, 12)
-
-    for exercise, grp in fit.groupby(['Exercise']):
-        ax = grp.plot(ax=ax, kind='line', marker='o', linestyle='-', alpha=0.7,
-                x='Date', y='Weight', linewidth=2, label=exercise)
-
-    # Name labels
-    plt.title('Exercise Trends', fontsize=36)
-    ax.set_xlabel('Date', fontsize=18)
-    ax.set_ylabel('Weight (lbs)', fontsize=18)
-
-    # Tweak dates
-    ax.axis([date(2018, 1, 19), date.today() + timedelta(days=3), 20, 160])
-    xfmt = mdates.DateFormatter('%b %-d')
-    ax.xaxis.set_major_formatter(xfmt)
-
     plt.legend(loc='best')
 
-    plt.savefig(out_file, bbox_inches='tight')
+    day_offset = timedelta(days=2)
+    ax.set_xlim(data.Date.min() - day_offset,
+                data.Date.max() + day_offset)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %-d'))
+
+    plt.savefig(out_file)
 
 
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('life',     help='ATimeLogger csv')
-    parser.add_argument('fit',      help='FitNotes csv')
     parser.add_argument('strong',   help='Strong csv')
     args = vars(parser.parse_args())
 
     life = parse_life(args['life'])
-    fit = parse_fit(args['fit'])
     strong = parse_strong(args['strong'])
 
-    print('\nLife data\n', life.head())
-    print(life.info())
-    print('\n-------------------\n')
-    print('\nFit data\n', fit.head())
-    print(fit.info())
-    print('\n-------------------\n')
-    print('\nStrong data\n', strong.head())
-    print(strong.info())
+    print('\nLife data\n{}\n{}\n--------\n'.format(
+        life.head(10), life.info()))
+    print('\nStrong data\n{}\n{}\n--------\n'.format(
+        strong.drop('Workout', axis=1).head(10), strong.info()))
 
-    print('\n-------------------\n')
-    #plot_exercises(fit, 'data/fit.png')
-    print('\n-------------------\n')
-    plot_exercises(strong, 'data/strong.png')
+    print('Plotting some graphs...\n')
+    plot_exercises(strong, 'Weight', 'data/strong_weight.png', exercises=['Bench Press', 'Squat', 'Deadlift'])
+    plot_exercises(strong, 'Sets', 'data/strong_sets.png')
+    plot_exercises(strong, 'Reps', 'data/strong_reps.png')
+    plot_exercises(strong, 'Volume', 'data/strong_volume.png')
 
 
 if __name__ == '__main__':
