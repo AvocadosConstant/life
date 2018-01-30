@@ -59,6 +59,10 @@ def plot_exercises(data, metric, out_file, exercises=None):
         raise ValueError(
             'plot_exercises: metric must be one of {}'.format(valid))
 
+    sns.set()
+    sns.set_style('whitegrid')
+    sns.set_palette(sns.color_palette('hls', data.Exercise.nunique()))
+
     plt.figure()
     fig, ax = plt.subplots()
 
@@ -70,9 +74,6 @@ def plot_exercises(data, metric, out_file, exercises=None):
                 alpha=0.7, linewidth=2, label=exercise)
 
     # Styling graph
-    sns.set()
-    sns.set_style('whitegrid')
-    sns.set_palette(sns.color_palette('hls', data.Exercise.nunique()))
     plt.title('Strength Training {}'.format(metric), fontsize=20)
     ax.set_xlabel('Date', fontsize=12)
 
@@ -107,7 +108,8 @@ def main():
         strong.drop('Workout', axis=1).head(10), strong.info()))
 
     print('Plotting some graphs...\n')
-    plot_exercises(strong, 'Weight', 'data/strong_weight.png', exercises=['Bench Press', 'Squat', 'Deadlift'])
+    plot_exercises(strong, 'Weight', 'data/strong_weight1.png', exercises=['Bench Press', 'Squat', 'Deadlift'])
+    plot_exercises(strong, 'Weight', 'data/strong_weight2.png')
     plot_exercises(strong, 'Sets', 'data/strong_sets.png')
     plot_exercises(strong, 'Reps', 'data/strong_reps.png')
     plot_exercises(strong, 'Volume', 'data/strong_volume.png')
