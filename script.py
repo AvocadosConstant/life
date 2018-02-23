@@ -68,8 +68,9 @@ def plot_exercises(data, metric, out_file, exercises=None):
 
     for exercise, grp in data.groupby(['Exercise']):
         if not exercises or exercise in exercises:
-            best_weights = grp.groupby(['Date'])[metric].max()
-            ax = best_weights.plot(
+            filtered = grp.groupby(['Date'])[metric]
+            points = filtered.sum() if metric in ['Reps', 'Volume'] else filtered.max()
+            ax = points.plot(
                 ax=ax, kind='line', marker='o', linestyle='-',
                 alpha=0.7, linewidth=2, label=exercise)
 
@@ -85,6 +86,7 @@ def plot_exercises(data, metric, out_file, exercises=None):
     plt.legend(loc='best')
 
     day_offset = timedelta(days=2)
+    ax.set_ylim(0, ax.get_ylim()[1] * 1.1)
     ax.set_xlim(data.Date.min() - day_offset,
                 data.Date.max() + day_offset)
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %-d'))
